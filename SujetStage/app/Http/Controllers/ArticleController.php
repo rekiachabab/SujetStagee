@@ -1,49 +1,60 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use App\Models\Categorie;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+   
     public function index()
     {
-        //
+        $articles = Article::with('category')->get(); 
+        return response()->json($articles);
     }
+    
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'type' => 'required|string',
+            'category_id' => 'required|exists:categories,id',  
+            'designation' => 'required|string|max:255',
+            'qty_stock' => 'required|integer',
+            'qty_alert' => 'required|integer',
+            'unite' => 'required|string|max:255',
+        ]);
+
+        $article = Article::create($validated);
+        return response()->json($article, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Article $article)
     {
-        //
+        return response()->json($article);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+   
     public function update(Request $request, Article $article)
     {
-        //
+        $validated = $request->validate([
+            'type' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'designation' => 'required|string|max:255',
+            'qty_stock' => 'required|integer',
+            'qty_alert' => 'required|integer',
+            'unite' => 'required|string|max:255',
+        ]);
+
+        $article->update($validated);
+        return response()->json($article);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+   
     public function destroy(Article $article)
     {
-        //
+        $article->delete();
+        return response()->json(['message' => 'Article supprimé']);
     }
 }

@@ -1,196 +1,291 @@
-
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import 'remixicon/fonts/remixicon.css';
-import '../index.css';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { axiosClient } from '../api/axios';
 
 const EntreeLine = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [entreeData, setEntreeData] = useState(null);
-
-
-  const [article, setArticle] = useState('');
-  const [quantite, setQuantite] = useState('');
   const [lines, setLines] = useState([]);
+  const [dataArticles, setDataArticles] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
+  const [formData, setFormData] = useState({ art_id: '', quantite: '' });
   const [editingIndex, setEditingIndex] = useState(null);
-  const [editingData, setEditingData] = useState({ idEntree: id, article: '', quantite: '' });
+  const [entreeData, setEntreeData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(''); 
+
+  const API_URL = '/api';
 
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem('data'));
-    if (storedData) {
-      const foundData = storedData.find(item => item.id === parseInt(id));
-      if (foundData) {
-        setEntreeData(foundData);
-        setLines(foundData.lines || []);
+  
+    axiosClient.get('/sanctum/csrf-cookie');
+
+ 
+    const fetchData = async () => {
+      try {
+        const [articlesResponse, linesResponse, fournisseursResponse, entreeResponse] = await Promise.all([
+          axiosClient.get(`${API_URL}/articles`),
+          axiosClient.get(`${API_URL}/entree-lines/${id}`),
+          axiosClient.get(`${API_URL}/fournisseurs`),
+          axiosClient.get(`${API_URL}/entrees/${id}`)
+        ]);
+
+        setDataArticles(articlesResponse.data);
+        setLines(linesResponse.data);
+        setFournisseurs(fournisseursResponse.data);
+        setEntreeData(entreeResponse.data);
+      } catch (error) {
+        alert('Erreur lors de la récupération des données');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    fetchData();
   }, [id]);
 
-
-  useEffect(() => {
-    if (entreeData) {
-      const storedData = JSON.parse(localStorage.getItem('data')) || [];
-      const index = storedData.findIndex(item => item.id === parseInt(id));
-      if (index !== -1) {
-        storedData[index].lines = lines;
-        localStorage.setItem('data', JSON.stringify(storedData));
-      }
-    }
-  }, [lines]);
-
-  const handleAdd = () => {
-    if (!article || !quantite) {
-      alert('Veuillez remplir tous les champs');
-      return;
-    }
-
-    setLines([...lines, { idEntree: id, article, quantite }]);
-    setArticle('');
-    setQuantite('');
+ 
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
   };
 
-  const handleDelete = (index) => {
-    const newLines = lines.filter((_, i) => i !== index);
-    setLines(newLines);
-  };
+ 
+  const filteredLines = lines.filter((line) => {
+    const article = dataArticles.find((art) => art.id === line.art_id);
+    const articleDesignation = article ? article.designation.toLowerCase() : '';
+    const search = searchQuery.toLowerCase();
+    return (
+      articleDesignation.includes(search) ||
+      line.quantite.toString().includes(search) 
+    );
+  });
 
-  const handleEdit = (index) => {
-    setEditingIndex(index);
-    setEditingData(lines[index]);
-  };
-
-  const handleSave = () => {
-    if (!editingData.article || !editingData.quantite) {
-      alert('Champs vides');
-      return;
-    }
-
-    const updated = [...lines];
-    updated[editingIndex] = editingData;
-    setLines(updated);
-    setEditingIndex(null);
-    setEditingData({ idEntree: id, article: '', quantite: '' });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleAfficher = () => {
     navigate(`/afficher-entree/${id}`);
   };
 
+  const handleSave = async (index = null) => {
+    if (!formData.art_id || !formData.quantite) {
+      alert('Veuillez remplir tous les champs');
+      return;
+    }
+
+    const payload = {
+      entree_id: id,
+      art_id: formData.art_id,
+      quantite: formData.quantite,
+    };
+
+    try {
+      if (index === null) {
+        const response = await axiosClient.post(`${API_URL}/entree-lines`, payload);
+        setLines([...lines, response.data]);
+      } else {
+        const updatedLine = lines[index];
+        const response = await axiosClient.put(`${API_URL}/entree-lines/${updatedLine.id}`, payload);
+        const updatedLines = [...lines];
+        updatedLines[index] = response.data;
+        setLines(updatedLines);
+        setEditingIndex(null);
+      }
+      setFormData({ art_id: '', quantite: '' });
+    } catch (error) {
+      console.error(error);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
+  const handleDelete = async (lineId) => {
+    try {
+      await axiosClient.delete(`${API_URL}/entree-lines/${lineId}`);
+      setLines(lines.filter((line) => line.id !== lineId));
+    } catch (error) {
+      console.error(error);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
   return (
     <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
-      {entreeData ? (
-        <div className="entree-details-container">
-          <h2>Informations de l'entrée N° {entreeData.id}</h2>
-          <div className="entree-details" style={{
-            background: '#eef2f5',
-            padding: '20px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            border: '1px solid #ccc'
-          }}>
-            <div><strong>FRS:</strong> {entreeData.frs}</div>
-            <div><strong>Type:</strong> {entreeData.type}</div>
-            <div><strong>Numéro:</strong> {entreeData.numero}</div>
-            <div><strong>NumFactBL:</strong> {entreeData.numFactBL}</div>
-            <div><strong>Observation:</strong> {entreeData.observation}</div>
-            <div><strong>Date:</strong> {entreeData.date}</div>
-          </div>
-        </div>
-      ) : (
+      {isLoading ? (
         <p>Chargement des données...</p>
-      )}
+      ) : (
+        <>
+          <h1 className="Class">Informations de l'entrée N° {entreeData.id}</h1>
+          {entreeData && (
+            <div className="entree-details-container">
+              <div className="DEV">
+                <div className="left">
+                  <div className="F">
+                    <strong>FRS:</strong>
+                    {fournisseurs.find((frs) => frs.id === Number(entreeData.frs_id))?.raison || 'Inconnu'}
+                  </div>
+                  <div className="F">
+                    <strong>Type:</strong> {entreeData.type}
+                  </div>
+                  <div className="F">
+                    <strong>Numéro:</strong> {entreeData.numero}
+                  </div>
+                </div>
 
-      <h2>Articles de l'entrée N° {id}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID Entrée</th>
-            <th>Article</th>
-            <th>Quantité</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>{id}</td>
-            <td>
-              <input
-                type="text"
-                value={article}
-                onChange={(e) => setArticle(e.target.value)}
-                placeholder="Nom de l'article"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                value={quantite}
-                onChange={(e) => setQuantite(e.target.value)}
-                placeholder="Quantité"
-              />
-            </td>
-            <td>
-              <button className='add-btn' onClick={handleAdd}>
-                <i className="ri-add-line"></i> Ajouter
-              </button>
-            </td>
-          </tr>
+                <div className="center">
+                  <div className="Date">
+                    <strong>Date:</strong> {entreeData.date}
+                  </div>
+                </div>
 
-          {lines.length === 0 ? (
-            <tr>
-              <td colSpan="4">Aucune ligne ajoutée</td>
-            </tr>
-          ) : (
-            lines.map((line, index) => (
-              <tr key={index}>
-                <td>{line.idEntree}</td>
-                <td>
-                  {editingIndex === index ? (
-                    <input
-                      type="text"
-                      value={editingData.article}
-                      onChange={(e) => setEditingData({ ...editingData, article: e.target.value })}
-                    />
-                  ) : (
-                    line.article
-                  )}
+                <div className="right">
+                  <div className="O">
+                    <strong>NumFactBL:</strong> {entreeData.numFactBl}
+                  </div>
+                  <div className="O">
+                    <strong>Observation:</strong> {entreeData.observation}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button  className="afficher-btn" onClick={handleAfficher}>
+            <i className="ri-eye-line"></i> Afficher
+          </button>
+
+         
+          <div style={{ margin: '20px' }}>
+            <label  style={{marginLeft:'60px'}}>rechercher :</label>
+            <input
+              type="text"
+              placeholder="Rechercher par désignation ou quantité..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+
+            />
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th style={{ padding: '10px', border: '1px solid #ddd' }}>Désignation</th>
+                <th style={{ padding: '10px', border: '1px solid #ddd' }}>Quantité</th>
+                <th style={{ padding: '10px', border: '1px solid #ddd' }}>Actions</th>
+              </tr>
+              <tr>
+                <td></td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  <select
+                    name="art_id"
+                    value={formData.art_id}
+                    onChange={handleInputChange}
+                    style={{ padding: '8px', width: '100%' }}
+                  >
+                    <option value="">-- Choisissez un article --</option>
+                    {dataArticles.map((art) => (
+                      <option key={art.id} value={art.id}>
+                        {art.designation}
+                      </option>
+                    ))}
+                  </select>
                 </td>
-                <td>
-                  {editingIndex === index ? (
-                    <input
-                      type="number"
-                      value={editingData.quantite}
-                      onChange={(e) => setEditingData({ ...editingData, quantite: e.target.value })}
-                    />
-                  ) : (
-                    line.quantite
-                  )}
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  <input
+                    type="number"
+                    name="quantite"
+                    value={formData.quantite}
+                    onChange={handleInputChange}
+                    placeholder="Quantité"
+                    style={{ padding: '8px', width: '100%' }}
+                  />
                 </td>
-                <td style={{ display: 'flex', justifyContent: 'center', gap: '5px' }}>
-                  {editingIndex === index ? (
-                    <button  className="save-btn" onClick={handleSave}>
-                      <i className="ri-check-line"></i>
-                    Sauvegarder</button>
-                  ) : (
-                    <>
-                      <button className='edit-btn' onClick={() => handleEdit(index)}>
-                        <i className="ri-edit-box-line"></i>
-                      Modifier</button>
-                      <button className='delete-btn' onClick={() => handleDelete(index)}>
-                        <i className="ri-delete-bin-6-line"></i>
-                      Delete</button>
-                    </>
-                  )}
-                  <button  onClick={handleAfficher} style={{ color: 'white', backgroundColor: '#3B82F6' }}>
-                    <i className="ri-eye-line"></i> Afficher
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  <button className="add-btn" onClick={() => handleSave()}>
+                    Ajouter
                   </button>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {filteredLines.length === 0 ? (
+                <tr>
+                  <td colSpan="3" style={{ padding: '10px', textAlign: 'center' }}>
+                    Aucune ligne ajoutée
+                  </td>
+                </tr>
+              ) : (
+                filteredLines.map((line, index) => (
+                  <tr key={line.id}>
+                    <td>{line.id}</td>
+                    <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                      {editingIndex === index ? (
+                        <select
+                          name="art_id"
+                          value={formData.art_id}
+                          onChange={handleInputChange}
+                          style={{ padding: '8px', width: '100%' }}
+                        >
+                          <option value="">-- Choisissez un article --</option>
+                          {dataArticles.map((art) => (
+                            <option key={art.id} value={art.id}>
+                              {art.designation}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        dataArticles.find((a) => a.id === line.art_id)?.designation || 'Inconnu'
+                      )}
+                    </td>
+                    <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                      {editingIndex === index ? (
+                        <input
+                          type="number"
+                          name="quantite"
+                          value={formData.quantite}
+                          onChange={handleInputChange}
+                          style={{ padding: '8px', width: '100%' }}
+                        />
+                      ) : (
+                        line.quantite
+                      )}
+                    </td>
+                    <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                      {editingIndex === index ? (
+                        <button className="save-btn" onClick={() => handleSave(index)}>
+                          Sauvegarder
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className="edit-btn"
+                            onClick={() => {
+                              setEditingIndex(index);
+                              setFormData({ art_id: line.art_id, quantite: line.quantite });
+                            }}
+                          >
+                            <i className="ri-edit-box-line"></i> Modifier
+                          </button>
+                        </>
+                      )}
+                      <button className="delete-btn" onClick={() => handleDelete(line.id)}>
+                        <i className="ri-delete-bin-6-line"></i> Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 };

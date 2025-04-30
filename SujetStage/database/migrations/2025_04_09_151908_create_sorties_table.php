@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('sorties', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('fct_id')->constrained('fonctionnaires')->onDelete('cascade'); // For 'FCT' (FK to fonctionnaires table)
-            $table->foreignId('entree_id')->constrained('entrees')->onDelete('cascade'); // For 'Entree' (FK to entrees table)
+            $table->foreignId('fct_id')->constrained('fonctionnaires')->onDelete('cascade'); 
+            $table->foreignId('entree_id')->constrained('entrees')->onDelete('cascade');
             $table->enum('type', [
                 'Scientific',
                 'Informatique',

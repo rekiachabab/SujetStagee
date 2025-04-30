@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import 'remixicon/fonts/remixicon.css';
-import '../index.css';
+import { axiosClient } from '../api/axios';
 
-const API_URL = 'http://localhost:8000/api/fournisseurs';
+const API_URL = '/api/fournisseurs';
 
 const Fournisseur = () => {
   const [formData, setFormData] = useState({
@@ -16,13 +16,26 @@ const Fournisseur = () => {
     fax: '',  
     observation: '', 
   });
-
+  const [searchTerm, setSearchTerm] = useState('');  
   const [data, setData] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingData, setEditingData] = useState({});
 
+ 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+
+  const filteredData = data.filter(item =>
+    Object.values(item).some(value =>
+      value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
   useEffect(() => {
-    axios.get(API_URL)
+    axiosClient.get('/sanctum/csrf-cookie');
+    axiosClient.get(API_URL)
       .then(res => setData(res.data))
       .catch(err => console.error('Erreur de chargement:', err));
   }, []);
@@ -43,7 +56,7 @@ const Fournisseur = () => {
       return;
     }
 
-    axios.post(API_URL, formData)
+    axiosClient.post(API_URL, formData)
       .then(res => {
         setData([...data, res.data.data]);
         setFormData({
@@ -67,7 +80,7 @@ const Fournisseur = () => {
   };
 
   const handleDelete = (id) => {
-    axios.delete(`${API_URL}/${id}`)
+    axiosClient.delete(`${API_URL}/${id}`)
       .then(() => {
         setData(data.filter(item => item.id !== id));
       })
@@ -80,9 +93,7 @@ const Fournisseur = () => {
   };
 
   const handleSave = (id) => {
-    
-console.log(editingData)
-    axios.put(`${API_URL}/${id}`, editingData)
+    axiosClient.put(`${API_URL}/${id}`, editingData)
       .then(res => {
         const newData = [...data];
         newData[editingIndex] = res.data.data;
@@ -98,10 +109,22 @@ console.log(editingData)
   };
 
   return (
-    <div style={{ textAlign: 'center', margin: '20px' }}>
+    <div className='App'>
       <h2>Gestion des Fournisseurs</h2>
 
-      <table border="1" style={{ borderCollapse: 'collapse', width: '100%' }}>
+      
+      <div>
+        <label style={{marginLeft:'40px'}}>Rechercher :</label>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder=" Rechercher par Raison, Adresse, Email, etc."
+          style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+        />
+      </div>
+
+      <table border="1" className='TF'>
         <thead>
           <tr>
             <th>ID</th>
@@ -117,13 +140,13 @@ console.log(editingData)
           </tr>
         </thead>
         <tbody>
-         
+          {/* إضافة صف لإدخال البيانات */}
           <tr>
             <td></td>
             {Object.keys(formData).map((key) => (
               <td key={key}>
                 <input
-                  type={key === 'tel' ? 'number' : key === 'email' ? 'email' : key === 'fax' ? 'number' : 'text'}  // استخدام نوع 'number' للفاكس
+                  type={key === 'tel' ? 'number' : key === 'email' ? 'email' : key === 'fax' ? 'number' : 'text'}
                   name={key}
                   value={formData[key]}
                   onChange={handleChange}
@@ -137,18 +160,18 @@ console.log(editingData)
             </td>
           </tr>
 
-         
-          {data.length === 0 ? (
-            <tr><td colSpan="10">Aucune donnée</td></tr>
+          {/* عرض البيانات المصفاة */}
+          {filteredData.length === 0 ? (
+            <tr><td colSpan="10">Aucune donnée disponible</td></tr>
           ) : (
-            data.map((item, index) => (
+            filteredData.map((item, index) => (
               <tr key={item.id}>
                 <td>{item.id}</td>
                 {Object.keys(formData).map(key => (
                   <td key={key}>
                     {editingIndex === index ? (
                       <input
-                        type={key === 'tel' || key === 'fax' ? 'number' : 'text'}  
+                        type={key === 'tel' || key === 'fax' ? 'number' : 'text'}
                         name={key}
                         value={editingData[key]}
                         onChange={handleEditChange}
@@ -162,9 +185,9 @@ console.log(editingData)
                   {editingIndex === index ? (
                     <button className="save-btn" onClick={() => handleSave(item.id)}>Sauvegarder</button>
                   ) : (
-                    <button className="edit-btn" onClick={() => handleEdit(index)}><i className="ri-edit-2-line"></i>Modifier</button>
+                    <button className="edit-btn" onClick={() => handleEdit(index)}><i className="ri-edit-box-line"></i> Modifier</button>
                   )}
-                  <button className="delete-btn" onClick={() => handleDelete(item.id)}><i className="ri-delete-bin-line"></i>Supprimer</button>
+                  <button className="delete-btn" onClick={() => handleDelete(item.id)}><i className="ri-delete-bin-line"></i> Supprimer</button>
                 </td>
               </tr>
             ))

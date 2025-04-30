@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('frs_id')->constrained('fournisseurs')->onDelete('cascade'); 
             $table->enum('type', ['Bon Commande', 'Bon Marche']); 
             $table->string('numero');
-            $table->string('num_fact_bl')->nullable(); 
+            $table->string('numFactBl')->nullable(); 
             $table->text('observation')->nullable(); 
             $table->date('date');
             $table->timestamps();

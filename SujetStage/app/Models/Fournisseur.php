@@ -13,4 +13,5 @@ protected $fillable = [
     'raison', 'adresse','observation', 'tel', 'ville', 'email', 'responsable', 'fax'
 ];
 
+
 }

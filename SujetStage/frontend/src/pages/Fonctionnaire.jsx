@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import '../index.css';
 import 'remixicon/fonts/remixicon.css';
+import { axiosClient } from '../api/axios';
 
 const Fonctionnaire = () => {
-
-  const [departement, setDepartement] = useState('');  
-  const [adresse, setAdresse] = useState('');          
-  const [tel, setTel] = useState('');                  
-  const [ville, setVille] = useState('');              
-  const [observation, setObservation] = useState('');  
-  const [email, setEmail] = useState('');              
-  const [responsable, setResponsable] = useState('');  
-  const [fax, setFax] = useState('');                  
-  const [data, setData] = useState([]);                
-  const [editingIndex, setEditingIndex] = useState(null);  
-  const [editingData, setEditingData] = useState({    
+  const [departement, setDepartement] = useState('');
+  const [adresse, setAdresse] = useState('');
+  const [tel, setTel] = useState('');
+  const [ville, setVille] = useState('');
+  const [observation, setObservation] = useState('');
+  const [email, setEmail] = useState('');
+  const [responsable, setResponsable] = useState('');
+  const [fax, setFax] = useState('');
+  const [data, setData] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingData, setEditingData] = useState({
     id: '',
     departement_id: '',
     adresse: '',
@@ -27,31 +26,30 @@ const Fonctionnaire = () => {
     fax: '',
   });
 
-  const [departments, setDepartments] = useState([]);  
+  const [departments, setDepartments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(''); // إضافة حالة البحث
 
-  
   useEffect(() => {
-    axios.get('http://localhost:8000/api/departements')
+    axiosClient.get('/sanctum/csrf-cookie');
+    axiosClient.get('/api/departements')
       .then(response => {
-        setDepartments(response.data);  
+        setDepartments(response.data);
       })
       .catch(error => {
         console.error('Error fetching departements:', error);
       });
   }, []);
 
- 
   useEffect(() => {
-    axios.get('http://localhost:8000/api/fonctionnaires')
+    axiosClient.get('/api/fonctionnaires')
       .then(response => {
-        setData(response.data);  
+        setData(response.data);
       })
       .catch(error => {
         console.error('Error fetching fonctionnaires:', error);
       });
   }, [data]);
 
-  
   const handleAddData = () => {
     if (
       departement.trim() === '' ||
@@ -78,9 +76,9 @@ const Fonctionnaire = () => {
       fax
     };
 
-    axios.post('http://localhost:8000/api/fonctionnaires', newData)
+    axiosClient.post('/api/fonctionnaires', newData)
       .then(response => {
-        setData(prevData => [...prevData, response.data]);  
+        setData(prevData => [...prevData, response.data]);
         setDepartement('');
         setAdresse('');
         setTel('');
@@ -94,27 +92,22 @@ const Fonctionnaire = () => {
         console.error('Error adding data:', error.response ? error.response.data : error);
         alert('Erreur lors de l\'ajout des données');
       });
-      axios.get('http://localhost:8000/api/fonctionnaires')
-
   };
 
- 
   const handleDelete = (id) => {
-    axios.delete(`http://localhost:8000/api/fonctionnaires/${id}`)
+    axiosClient.delete(`/api/fonctionnaires/${id}`)
       .then(() => {
-        setData(data.filter(item => item.id !== id));  
+        setData(data.filter(item => item.id !== id));
       })
       .catch(error => {
         console.error('Error deleting data:', error);
       });
   };
 
-  
   const handleEdit = (index) => {
     setEditingIndex(index);
     setEditingData(data[index]);
   };
-
 
   const handleSave = (id) => {
     const updatedData = { ...editingData };
@@ -124,29 +117,48 @@ const Fonctionnaire = () => {
       return;
     }
 
-    axios.put(`http://localhost:8000/api/fonctionnaires/${id}`, updatedData)
+    axiosClient.put(`/api/fonctionnaires/${id}`, updatedData)
       .then(response => {
         const updatedItems = [...data];
         const index = updatedItems.findIndex(item => item.id === id);
         updatedItems[index] = response.data;
         setData(updatedItems);
-        setEditingIndex(null);  
+        setEditingIndex(null);
       })
       .catch(error => {
         console.error('Error saving data:', error);
         alert('Erreur lors de la mise à jour des données');
       });
-      axios.get('http://localhost:8000/api/fonctionnaires')
-      .then(response=>{
-        setData(response.data)
-      })
   };
 
-  return (
-    <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
-      <h2>Table Fonctionnaire</h2>
+  // تصفية البيانات بناءً على حقل البحث
+  const filteredData = data.filter(item =>
+    item.departement?.raccourci.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.adresse.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.tel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.ville.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.responsable.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.fax.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-      <table style={{ borderCollapse: 'collapse' }}>
+  return (
+    <div className="App">
+      <h2>Table des Fonctionnaires</h2>
+      
+    
+      <div style={{ marginBottom: '1rem' }}>
+        <label  style={{marginLeft:'40px'}}>Rechercher :</label>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="  Recherche par Département, Adresse, Email, etc."
+          style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+        />
+      </div>
+
+      <table className='TF'>
         <thead>
           <tr>
             <th>ID</th>
@@ -188,12 +200,12 @@ const Fonctionnaire = () => {
             <td><button className="add-btn" onClick={handleAddData}><i className="ri-add-line"></i> Ajouter</button></td>
           </tr>
 
-          {data.length === 0 ? (
+          {filteredData.length === 0 ? (
             <tr>
               <td colSpan="10">Aucune donnée disponible</td>
             </tr>
           ) : (
-            data.map((item, index) => (
+            filteredData.map((item, index) => (
               <tr key={index}>
                 <td>{item.id}</td>
                 <td>{editingIndex === index ? (

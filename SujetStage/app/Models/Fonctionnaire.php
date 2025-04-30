@@ -1,6 +1,6 @@
 <?php
 
-// app/Models/Fonctionnaire.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,5 +25,9 @@ class Fonctionnaire extends Model
     public function departement()
     {
         return $this->belongsTo(Departement::class);
+    }
+    public function sorties()
+    {
+        return $this->hasMany(Sortie::class);
     }
 }

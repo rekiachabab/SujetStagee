@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import '../index.css';
 import 'remixicon/fonts/remixicon.css';
+import { axiosClient } from '../api/axios';
 
 const Departement = () => {
   const [designation, setDesignation] = useState('');
@@ -9,20 +8,20 @@ const Departement = () => {
   const [data, setData] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingData, setEditingData] = useState({ id: '', designation: '', raccourci: '' });
+  const [searchTerm, setSearchTerm] = useState(''); 
 
-  
   useEffect(() => {
-  
-    axios.get('http://localhost:8000/api/departements')
+    axiosClient.get('/sanctum/csrf-cookie');
+    axiosClient.get('/api/departements')
       .then(response => {
-        setData(response.data)
-        console.log(response.data)
+        setData(response.data);
+        console.log(response.data);
       })
       .catch(error => {
         console.error('Erreur lors du chargement des départements :', error);
       });
   }, []);
- 
+
   const handleAddData = () => {
     if (designation.trim() === '' || raccourci.trim() === '') {
       alert('Veuillez entrer une désignation et un raccourci.');
@@ -30,8 +29,9 @@ const Departement = () => {
     }
 
     const newDepartement = { designation, raccourci };
- axios.get('http://localhost:8000/sanctum/csrf-cookie')
-    axios.post('http://localhost:8000/api/departements', newDepartement)
+    axiosClient.get('/sanctum/csrf-cookie');
+
+    axiosClient.post('/api/departements', newDepartement)
       .then(response => {
         setData([...data, response.data]);
         setDesignation('');
@@ -42,9 +42,10 @@ const Departement = () => {
       });
   };
 
-  
   const handleDelete = (id) => {
-    axios.delete(`http://localhost:8000/api/departements/${id}`)
+    axiosClient.get('/sanctum/csrf-cookie');
+
+    axiosClient.delete(`/api/departements/${id}`)
       .then(() => {
         setData(data.filter(item => item.id !== id));
       })
@@ -53,15 +54,15 @@ const Departement = () => {
       });
   };
 
-  
   const handleEdit = (index) => {
     setEditingIndex(index);
     setEditingData({ ...data[index] });
   };
 
-  
   const handleSave = (index) => {
-    axios.put(`http://localhost:8000/api/departements/${editingData.id}`, editingData)
+    axiosClient.get('/sanctum/csrf-cookie');
+
+    axiosClient.put(`/api/departements/${editingData.id}`, editingData)
       .then(response => {
         const updatedData = [...data];
         updatedData[index] = response.data;
@@ -74,11 +75,32 @@ const Departement = () => {
       });
   };
 
+  const filteredData = data
+    .filter(item =>
+      item.designation.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      item.raccourci.toLowerCase().includes(searchTerm.toLowerCase()) 
+    );
+
   return (
-    <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
+    <div className="App">
       <h2>Tableau des Départements</h2>
 
-      <table style={{ borderCollapse: 'collapse' }}>
+     
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{marginLeft:'40px'}}>Rechercher :</label>
+      
+
+<input
+            type="text"
+            placeholder=" Rechercher par Désignation ou Raccourci..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+          />
+      </div>
+
+      
+      <table className='TF'>
         <thead>
           <tr>
             <th>ID</th>
@@ -88,7 +110,6 @@ const Departement = () => {
           </tr>
         </thead>
         <tbody>
-          {/* Formulaire d'ajout */}
           <tr>
             <td></td>
             <td>
@@ -97,7 +118,6 @@ const Departement = () => {
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="Entrer la désignation"
-                style={{ width: '80%', padding: '5px' }}
               />
             </td>
             <td>
@@ -106,7 +126,6 @@ const Departement = () => {
                 value={raccourci}
                 onChange={(e) => setRaccourci(e.target.value)}
                 placeholder="Entrer le raccourci"
-                style={{ width: '80%', padding: '5px' }}
               />
             </td>
             <td>
@@ -116,13 +135,12 @@ const Departement = () => {
             </td>
           </tr>
 
-          
-          {data.length === 0 ? (
+          {filteredData.length === 0 ? (
             <tr>
               <td colSpan="4">Aucune donnée disponible</td>
             </tr>
           ) : (
-            data.map((item, index) => (
+            filteredData.map((item, index) => (
               <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>
@@ -171,172 +189,3 @@ const Departement = () => {
 };
 
 export default Departement;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* import React, { useState } from 'react';
-import '../index.css';
-import 'remixicon/fonts/remixicon.css';
-
-const Departement = () => {
-  const [designation, setDesignation] = useState('');
-  const [raccourci, setRaccourci] = useState('');
-  const [data, setData] = useState([]);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editingData, setEditingData] = useState({ id: '', designation: '', raccourci: '' });
-  const [nextId, setNextId] = useState(1); 
-
-  const handleAddData = () => {
-    if (designation.trim() === '' || raccourci.trim() === '') {
-      alert('Veuillez entrer des valeurs pour la Désignation et le Raccourci !');
-      return;
-    }
-
-    setData([...data, { id: nextId, designation, raccourci }]);
-    setNextId(nextId + 1);  
-    setDesignation('');
-    setRaccourci('');
-  };
-
-  const handleDelete = (index) => {
-    const newData = data.filter((_, i) => i !== index);
-    setData(newData);
-  };
-
-  const handleEdit = (index) => {
-    setEditingIndex(index);
-    setEditingData(data[index]);
-  };
-
-  const handleSave = (index) => {
-    if (editingData.designation.trim() === '' || editingData.raccourci.trim() === '') {
-      alert('Veuillez entrer des valeurs pour la Désignation et le Raccourci pour mettre à jour !');
-      return;
-    }
-    const newData = [...data];
-    newData[index] = editingData; 
-    setData(newData);
-    setEditingIndex(null);  
-    setEditingData({ id: '', designation: '', raccourci: '' });  
-  };
-
-  return (
-    <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
-      <h2>Tableau des Départements</h2>
-
-      <table style={{ borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Désignation</th>
-            <th>Raccourci</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-         
-          <tr>
-            <td></td>
-            <td>
-              <input
-                type="text"
-                value={designation}
-                onChange={(e) => setDesignation(e.target.value)}
-                placeholder="Entrer la Désignation"
-                style={{ width: '80%', padding: '5px' }}
-              />
-            </td>
-            <td>
-              <input
-                type="text"
-                value={raccourci}
-                onChange={(e) => setRaccourci(e.target.value)}
-                placeholder="Entrer le Raccourci"
-                style={{ width: '80%', padding: '5px' }}
-              />
-            </td>
-            <td>
-              <button className="add-btn" onClick={handleAddData}>
-                <i className="ri-add-line"></i> Ajouter
-              </button>
-            </td>
-          </tr>
-
-          {data.length === 0 ? (
-            <tr>
-              <td colSpan="4">Aucune donnée disponible</td>
-            </tr>
-          ) : (
-            data.map((item, index) => (
-              <tr key={index}>
-                <td>{item.id}</td>
-                <td>
-                  {editingIndex === index ? (
-                    <input
-                      type="text"
-                      value={editingData.designation}
-                      onChange={(e) => setEditingData({ ...editingData, designation: e.target.value })}
-                    />
-                  ) : (
-                    item.designation
-                  )}
-                </td>
-                <td>
-                  {editingIndex === index ? (
-                    <input
-                      type="text"
-                      value={editingData.raccourci}
-                      onChange={(e) => setEditingData({ ...editingData, raccourci: e.target.value })}
-                    />
-                  ) : (
-                    item.raccourci
-                  )}
-                </td>
-                <td>
-                  {editingIndex === index ? (
-                    <button className="save-btn" onClick={() => handleSave(index)}>
-                      Enregistrer
-                    </button>
-                  ) : (
-                    <button className="edit-btn" onClick={() => handleEdit(index)}>
-                      <i className="ri-edit-box-line"></i> Modifier
-                    </button>
-                  )}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>
-                    <i className="ri-delete-bin-6-line"></i> Supprimer
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-export default Departement;
- */

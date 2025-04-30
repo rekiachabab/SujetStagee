@@ -1,27 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import '../index.css';
 import 'remixicon/fonts/remixicon.css';
+import { axiosClient } from '../api/axios';
 
 const Categories = () => {
   const [type, setType] = useState('Consommable');
   const [category, setCategory] = useState('');
   const [data, setData] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');  
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingData, setEditingData] = useState({ id: '', type: 'Consommable', category: '' });
 
   useEffect(() => {
-    axios.get('http://localhost:8000/sanctum/csrf-cookie').then(fetchCategories);
+    axiosClient.get('/sanctum/csrf-cookie').then(fetchCategories);
   }, []);
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/categories');
+      const response = await axiosClient.get('/api/categories');
       setData(response.data);
     } catch (error) {
       console.error('Erreur lors du chargement des catégories', error);
     }
   };
+
+  
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const filteredData = data.filter(item =>
+    Object.values(item).some(value =>
+      value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
 
   const handleAddData = async () => {
     if (category.trim() === '') {
@@ -30,8 +42,8 @@ const Categories = () => {
     }
 
     try {
-      const response = await axios.post(
-        'http://localhost:8000/api/categories',
+      const response = await axiosClient.post(
+        '/api/categories',
         { type, category },
         { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
       );
@@ -47,7 +59,7 @@ const Categories = () => {
     const item = data[index];
     console.log('Trying to delete category with ID:', item?.id);
     try {
-      await axios.delete(`http://localhost:8000/api/categories/${item.id}`);
+      await axiosClient.delete(`/api/categories/${item.id}`);
       setData(data.filter((_, i) => i !== index));
     } catch (error) {
       console.error('Erreur lors de la suppression', error);
@@ -66,8 +78,8 @@ const Categories = () => {
     }
 
     try {
-      const response = await axios.put(
-        `http://localhost:8000/api/categories/${editingData.id}`,
+      const response = await axiosClient.put(
+        `/api/categories/${editingData.id}`,
         editingData,
         { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
       );
@@ -82,10 +94,21 @@ const Categories = () => {
   };
 
   return (
-    <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
+    <div className="App">
       <h2>Tableau des Catégories</h2>
 
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+      <div>
+        <label  style={{marginLeft:'40px'}}>Rechercher :</label>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder=" Rechercher par catégorie"
+          style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+        />
+      </div>
+
+      <table className='TF'>
         <thead>
           <tr>
             <th>ID</th>
@@ -118,12 +141,13 @@ const Categories = () => {
             </td>
           </tr>
 
-          {data.length === 0 ? (
+         
+          {filteredData.length === 0 ? (
             <tr>
               <td colSpan="4">Aucune donnée</td>
             </tr>
           ) : (
-            data.map((item, index) => (
+            filteredData.map((item, index) => (
               <tr key={item.id ?? `row-${index}`}>
                 <td>{item.id}</td>
                 <td>
@@ -155,9 +179,9 @@ const Categories = () => {
                 </td>
                 <td>
                   {editingIndex === index ? (
-                    <button className="save-btn"  onClick={() => handleSave(index)}>Enregistrer</button>
+                    <button className="save-btn" onClick={() => handleSave(index)}>Enregistrer</button>
                   ) : (
-                    <button className="edit-btn"  onClick={() => handleEdit(index)}>
+                    <button className="edit-btn" onClick={() => handleEdit(index)}>
                       <i className="ri-edit-box-line"></i> Modifier
                     </button>
                   )}

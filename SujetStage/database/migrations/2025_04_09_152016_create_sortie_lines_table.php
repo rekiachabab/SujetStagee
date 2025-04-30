@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('sortie_id')->constrained('sorties')->onDelete('cascade'); 
             $table->foreignId('art_id')->constrained('articles')->onDelete('cascade'); 
-            $table->string('num_invent'); 
+            $table->string('num_invent')->unique()->increments();
+            $table->integer('ansinvt');
+            $table->string('type_invt');
             $table->integer('quantite');
             $table->timestamps();
         });

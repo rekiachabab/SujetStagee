@@ -1,6 +1,6 @@
 <?php
 
-// app/Http/Controllers/FonctionnaireController.php
+
 namespace App\Http\Controllers;
 
 use App\Models\Fonctionnaire;

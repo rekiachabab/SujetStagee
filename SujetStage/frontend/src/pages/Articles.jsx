@@ -1,132 +1,176 @@
-import React, { useState } from 'react';
-import '../index.css';
+import React, { useState, useEffect } from 'react';
+import { axiosClient } from '../api/axios';
 
 const Articles = () => {
   const [type, setType] = useState('Consommable');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [designation, setDesignation] = useState('');
   const [qtyStock, setQtyStock] = useState('');
   const [qtyAlert, setQtyAlert] = useState('');
   const [unite, setUnite] = useState('');
   const [data, setData] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingData, setEditingData] = useState({
     id: '',
     type: 'Consommable',
-    category: '',
+    category_id: '',
     designation: '',
-    qtyStock: '',
-    qtyAlert: '',
+    qty_stock: '',
+    qty_alert: '',
     unite: ''
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const [nextId, setNextId] = useState(1);
-  const [selectedArticle, setSelectedArticle] = useState(null);
+  useEffect(() => {
+    axiosClient.get('/sanctum/csrf-cookie').then(fetchArticles);
+    fetchCategories();
+  }, []);
 
-  const handleAddData = () => {
-    if (category.trim() === '' || designation.trim() === '' || qtyStock.trim() === '' || qtyAlert.trim() === '' || unite.trim() === '') {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    fetchArticles();
+  }, [debouncedSearchTerm]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axiosClient.get('/api/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des catégories', error);
+    }
+  };
+
+  const fetchArticles = async () => {
+    try {
+      const response = await axiosClient.get('/api/articles');
+      setData(response.data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des articles', error);
+    }
+  };
+
+  const filteredData = data.filter(item =>
+    Object.values(item).some(value =>
+      value && value.toString().toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    ) ||
+    (item.category && item.category.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+  );
+
+  const handleAddArticle = async () => {
+    if (designation.trim() === '' || categoryId === '') {
       alert('Veuillez remplir tous les champs!');
       return;
     }
-
-    const newId = nextId;
-    setNextId(nextId + 1);
-
-    setData([
-      ...data,
-      { id: newId, type, category, designation, qtyStock, qtyAlert, unite }
-    ]);
-
-    setCategory('');
-    setDesignation('');
-    setQtyStock('');
-    setQtyAlert('');
-    setUnite('');
+    try {
+      const response = await axiosClient.post('/api/articles', {
+        type,
+        category_id: categoryId,
+        designation,
+        qty_stock: qtyStock,
+        qty_alert: qtyAlert,
+        unite,
+      });
+      setData([...data, response.data]);
+      setDesignation('');
+      setCategoryId('');
+      setQtyStock('');
+      setQtyAlert('');
+      setUnite('');
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout', error);
+    }
   };
 
-  const handleDelete = (index) => {
-    const newData = data.filter((_, i) => i !== index);
-    setData(newData);
-  };
-
-  const handleEdit = (index) => {
+  const handleEditArticle = (index) => {
     setEditingIndex(index);
-    setEditingData(data[index]);
-  };
-
-  const handleSave = (index) => {
-    if (editingData.category.trim() === '' || editingData.designation.trim() === '' || editingData.qtyStock.trim() === '' || editingData.qtyAlert.trim() === '' || editingData.unite.trim() === '') {
-      alert('Veuillez remplir tous les champs!');
-      return;
-    }
-
-    const newData = [...data];
-    newData[index] = editingData;
-    setData(newData);
-    setEditingIndex(null);
+    const item = filteredData[index];
     setEditingData({
-      id: '',
-      type: 'Consommable',
-      category: '',
-      designation: '',
-      qtyStock: '',
-      qtyAlert: '',
-      unite: ''
+      id: item.id,
+      type: item.type,
+      category_id: item.category?.id || '', // ✅ corrigé ici
+      designation: item.designation,
+      qty_stock: item.qty_stock,
+      qty_alert: item.qty_alert,
+      unite: item.unite,
     });
   };
 
-  const handleDetails = (index) => {
-    setSelectedArticle(data[index]); 
+  const handleSaveEdit = async () => {
+    try {
+      const response = await axiosClient.put(`/api/articles/${editingData.id}`, editingData);
+      const updated = [...data];
+      const index = updated.findIndex(item => item.id === editingData.id);
+      if (index !== -1) updated[index] = response.data;
+      setData(updated);
+      setEditingIndex(null);
+      setEditingData({});
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement", error);
+    }
+  };
+
+  const handleDeleteArticle = async (id) => {
+    if (window.confirm('Voulez-vous vraiment supprimer cet article ?')) {
+      try {
+        await axiosClient.delete(`/api/articles/${id}`);
+        setData(data.filter(item => item.id !== id));
+      } catch (error) {
+        console.error('Erreur lors de la suppression', error);
+      }
+    }
   };
 
   return (
-    <div className="App" style={{ textAlign: 'center', margin: '20px' }}>
-      <h2>Table des articles</h2>
+    <div className="App">
+      <h2>Tableau des Articles</h2>
 
-      
-      {selectedArticle && (
-        <div className="article-details" style={{ marginBottom: '20px', textAlign: 'left', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)' }}>
-          <h3>Détails de l'article {selectedArticle.id}</h3>
-          <p><strong>ID :</strong> {selectedArticle.id}</p>
-          <p><strong>Type :</strong> {selectedArticle.type}</p>
-          <p><strong>Catégorie :</strong> {selectedArticle.category}</p>
-          <p><strong>Désignation :</strong> {selectedArticle.designation}</p>
-          <p><strong>Quantité en stock :</strong> {selectedArticle.qtyStock}</p>
-          <p><strong>Quantité d'alerte :</strong> {selectedArticle.qtyAlert}</p>
-          <p><strong>Unité :</strong> {selectedArticle.unite}</p>
-        </div>
-      )}
+      <div>
+        <label style={{ marginLeft: '40px' }}>Rechercher :</label>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="  Rechercher un article"
+          style={{ margin: '10px 0', padding: '5px', width: '300px' }}
+        />
+      </div>
 
-      
-      <table style={{ width: '100%', margin: 'auto', borderCollapse: 'collapse' }}>
+      <table className='TF'>
         <thead>
           <tr>
             <th>ID</th>
             <th>Type</th>
             <th>Catégorie</th>
             <th>Désignation</th>
-            <th>Quantité en stock</th>
-            <th>Quantité d'alerte</th>
+            <th>QtyStock</th>
+            <th>QtyAlert</th>
             <th>Unité</th>
-            <th>Actions</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
-         
           <tr>
-            <td>{nextId}</td>
+            <td></td>
             <td>
-              <select value={type} onChange={(e) => setType(e.target.value)} style={{ width: '80%', padding: '5px' }}>
+              <select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="Consommable">Consommable</option>
                 <option value="Non Consommable">Non Consommable</option>
               </select>
             </td>
             <td>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '80%', padding: '5px' }}>
-                <option value="">Sélectionner la catégorie</option>
-                <option value="Category1">Catégorie 1</option>
-                <option value="Category2">Catégorie 2</option>
-                <option value="Category3">Catégorie 3</option>
+              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">Sélectionner une catégorie</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.category}</option>
+                ))}
               </select>
             </td>
             <td>
@@ -135,7 +179,6 @@ const Articles = () => {
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="Entrer la désignation"
-                style={{ width: '80%', padding: '5px' }}
               />
             </td>
             <td>
@@ -143,8 +186,7 @@ const Articles = () => {
                 type="number"
                 value={qtyStock}
                 onChange={(e) => setQtyStock(e.target.value)}
-                placeholder="Quantité en stock"
-                style={{ width: '80%', padding: '5px' }}
+                placeholder="QtyStock"
               />
             </td>
             <td>
@@ -152,8 +194,7 @@ const Articles = () => {
                 type="number"
                 value={qtyAlert}
                 onChange={(e) => setQtyAlert(e.target.value)}
-                placeholder="Quantité d'alerte"
-                style={{ width: '80%', padding: '5px' }}
+                placeholder="QtyAlert"
               />
             </td>
             <td>
@@ -162,31 +203,24 @@ const Articles = () => {
                 value={unite}
                 onChange={(e) => setUnite(e.target.value)}
                 placeholder="Unité"
-                style={{ width: '80%', padding: '5px' }}
               />
             </td>
             <td>
-              <button className="add-btn" onClick={handleAddData}>
-                <i className="ri-add-line"></i> Ajouter
-              </button>
+              <button className='add-btn' onClick={handleAddArticle}><i className="ri-add-line"></i>Ajouter</button>
             </td>
           </tr>
 
-        
-          {data.length === 0 ? (
+          {filteredData.length === 0 ? (
             <tr>
-              <td colSpan="8">Aucune donnée disponible</td>
+              <td colSpan="8">Aucune donnée</td>
             </tr>
           ) : (
-            data.map((item, index) => (
-              <tr key={index}>
+            filteredData.map((item, index) => (
+              <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>
                   {editingIndex === index ? (
-                    <select
-                      value={editingData.type}
-                      onChange={(e) => setEditingData({ ...editingData, type: e.target.value })}
-                    >
+                    <select value={editingData.type} onChange={(e) => setEditingData({ ...editingData, type: e.target.value })}>
                       <option value="Consommable">Consommable</option>
                       <option value="Non Consommable">Non Consommable</option>
                     </select>
@@ -196,19 +230,18 @@ const Articles = () => {
                 </td>
                 <td>
                   {editingIndex === index ? (
-                    <input
-                      type="text"
-                      value={editingData.category}
-                      onChange={(e) => setEditingData({ ...editingData, category: e.target.value })}
-                    />
+                    <select value={editingData.category_id} onChange={(e) => setEditingData({ ...editingData, category_id: e.target.value })}>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.category}</option>
+                      ))}
+                    </select>
                   ) : (
-                    item.category
+                    item.category?.category
                   )}
                 </td>
                 <td>
                   {editingIndex === index ? (
                     <input
-                      type="text"
                       value={editingData.designation}
                       onChange={(e) => setEditingData({ ...editingData, designation: e.target.value })}
                     />
@@ -220,28 +253,27 @@ const Articles = () => {
                   {editingIndex === index ? (
                     <input
                       type="number"
-                      value={editingData.qtyStock}
-                      onChange={(e) => setEditingData({ ...editingData, qtyStock: e.target.value })}
+                      value={editingData.qty_stock}
+                      onChange={(e) => setEditingData({ ...editingData, qty_stock: e.target.value })}
                     />
                   ) : (
-                    item.qtyStock
+                    item.qty_stock
                   )}
                 </td>
                 <td>
                   {editingIndex === index ? (
                     <input
                       type="number"
-                      value={editingData.qtyAlert}
-                      onChange={(e) => setEditingData({ ...editingData, qtyAlert: e.target.value })}
+                      value={editingData.qty_alert}
+                      onChange={(e) => setEditingData({ ...editingData, qty_alert: e.target.value })}
                     />
                   ) : (
-                    item.qtyAlert
+                    item.qty_alert
                   )}
                 </td>
                 <td>
                   {editingIndex === index ? (
                     <input
-                      type="text"
                       value={editingData.unite}
                       onChange={(e) => setEditingData({ ...editingData, unite: e.target.value })}
                     />
@@ -251,20 +283,16 @@ const Articles = () => {
                 </td>
                 <td>
                   {editingIndex === index ? (
-                    <button className="save-btn" onClick={() => handleSave(index)}>
-                      Enregistrer
-                    </button>
+                    <>
+                      <button className="save-btn" onClick={handleSaveEdit}><i className="ri-check-line"></i> Sauvegarder</button>
+                      <button className="cancel-btn" onClick={() => setEditingIndex(null)}><i className="ri-close-line"></i> Annuler</button>
+                    </>
                   ) : (
-                    <button className="edit-btn" onClick={() => handleEdit(index)}>
-                      <i className="ri-edit-box-line"></i> Modifier
-                    </button>
+                    <>
+                      <button className="edit-btn" onClick={() => handleEditArticle(index)}><i className="ri-edit-box-line"></i> Modifier</button>
+                      <button className="delete-btn" onClick={() => handleDeleteArticle(item.id)}><i className="ri-delete-bin-6-line"></i> Supprimer</button>
+                    </>
                   )}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>
-                    <i className="ri-delete-bin-6-line"></i> Supprimer
-                  </button>
-                  <button className="details-btn" onClick={() => handleDetails(index)}>
-                    <i className="ri-eye-line"></i> Détails
-                  </button>
                 </td>
               </tr>
             ))
